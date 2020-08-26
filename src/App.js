@@ -157,47 +157,47 @@ class App extends Component {
                 <Tooltip mouseEnterDelay={0.5} title="About CLOWDR"><NavLink to="/about"><Button size="small">About</Button></NavLink></Tooltip>
                 <NavLink to="/signout"><Button size="small">Sign Out</Button></NavLink>
                 </span>
-            }
 
-            if(confSwitcher){
-                confSwitcher = <span style={{float: "right"}}>{confSwitcher} {clowdrActionButtons}</span>
-            }
-            else
-                confSwitcher= <span style={{float: "right"}}>{clowdrActionButtons}</span>;
-
-            if (headerImage) {
-                let logo = ""
-                if (this.props.clowdrAppState.user && this.props.clowdrAppState.isAdmin) {
-                    logo = <Upload accept=".png, .jpg" name='logo' beforeUpload={this.onLogoUpload.bind(this)} fileList={[]}>
-                               <img src={headerImage.url()} className="App-logo" height="75" alt="logo" title="Click to replace logo"/> 
-                           </Upload>
+                if (confSwitcher){
+                    confSwitcher = <span style={{float: "right"}}>{confSwitcher} {clowdrActionButtons}</span>
                 }
                 else
-                    logo = <img src={headerImage.url()} className="App-logo" height="75" alt="logo"/> 
-    
-                return <table className="site-layout-background" style={{height: "75px", clear: "both"}}>
-                        <tbody><tr>
-                        <td>{logo}</td>
-                        <td><Typography.Title style={{display: "inherit"}}>{headerText}</Typography.Title></td><td>{confSwitcher}</td>
-                        </tr></tbody></table>
-            }
-            else if (headerText) {
-                let logo = "";
-                if (this.props.clowdrAppState.user && this.props.clowdrAppState.isAdmin) {
-                    logo = <Upload accept=".png, .jpg" name='logo' beforeUpload={this.onLogoUpload.bind(this)} fileList={[]}>
-                                    <Button type="primary" size="small" title="Upload conference logo">
-                                        <UploadOutlined />
-                                    </Button>
+                    confSwitcher= <span style={{float: "right"}}>{clowdrActionButtons}</span>;
+
+                if (headerImage) {
+                    let logo = ""
+                    if (this.props.clowdrAppState.user && this.props.clowdrAppState.isAdmin) {
+                        logo = <Upload accept=".png, .jpg" name='logo' beforeUpload={this.onLogoUpload.bind(this)} fileList={[]}>
+                                <img src={headerImage.url()} className="App-logo" height="75" alt="logo" title="Click to replace logo"/> 
                             </Upload>
+                    }
+                    else
+                        logo = <img src={headerImage.url()} className="App-logo" height="75" alt="logo"/> 
+        
+                    return <table className="site-layout-background" style={{height: "75px", clear: "both"}}>
+                            <tbody><tr>
+                            <td>{logo}</td>
+                            <td><Typography.Title style={{display: "inherit"}}>{headerText}</Typography.Title></td><td>{confSwitcher}</td>
+                            </tr></tbody></table>
                 }
-                return <table className="site-layout-background" style={{height: "75px", clear: "both"}}>
-                        <tbody><tr>
-                            <td>{logo}</td><td><Typography.Title style={{display: 'inherit'}}>{headerText}</Typography.Title></td><td>{confSwitcher}</td>
-                        </tr></tbody></table>
-            } else
-                return <div className="site-layout-background" style={{clear:'both' }}>
-                   <div style={{float:'left'}}><Typography.Title>
-                       {this.state.conference.get('conferenceName')} Group Video Chat</Typography.Title></div>{confSwitcher}</div>
+                else if (headerText) {
+                    let logo = "";
+                    if (this.props.clowdrAppState.user && this.props.clowdrAppState.isAdmin) {
+                        logo = <Upload accept=".png, .jpg" name='logo' beforeUpload={this.onLogoUpload.bind(this)} fileList={[]}>
+                                        <Button type="primary" size="small" title="Upload conference logo">
+                                            <UploadOutlined />
+                                        </Button>
+                                </Upload>
+                    }
+                    return <table className="site-layout-background" style={{height: "75px", clear: "both"}}>
+                            <tbody><tr>
+                                <td>{logo}</td><td><Typography.Title style={{display: 'inherit'}}>{headerText}</Typography.Title></td><td>{confSwitcher}</td>
+                            </tr></tbody></table>
+                } else
+                    return <div className="site-layout-background" style={{clear:'both' }}>
+                    <div style={{float:'left'}}><Typography.Title>
+                        {this.state.conference.get('conferenceName')} Group Video Chat</Typography.Title></div>{confSwitcher}</div>
+            }
         }
     }
 
@@ -205,7 +205,32 @@ class App extends Component {
         if (this.isSlackAuthOnly()) {
             return <div></div>
         }
-        return <Header><LinkMenu/></Header>
+
+        let logo = undefined;
+        let className="logo"
+        let headerImage = this.state.conference.get("headerImage");
+        if (headerImage) {
+            if (this.props.clowdrAppState.user && this.props.clowdrAppState.isAdmin) {
+                logo = <Upload style={{verticalAlign:"top"}} accept=".png, .jpg" name='logo' beforeUpload={this.onLogoUpload.bind(this)} fileList={[]}>
+                           <img src={headerImage.url()} height="50" alt="logo" title="Click to replace logo"/> 
+                       </Upload>
+            }
+            else
+                logo = <img src={headerImage.url()}  height="50" alt="logo"/> 
+
+        }
+        else {
+            if (this.props.clowdrAppState.user && this.props.clowdrAppState.isAdmin) {
+                logo = <Upload accept=".png, .jpg" name='logo' beforeUpload={this.onLogoUpload.bind(this)} fileList={[]}>
+                                <Button type="primary" size="small" title="Upload conference logo">
+                                    <UploadOutlined />
+                                </Button>
+                        </Upload>
+            }
+            if (!logo)
+                className = "missing-logo";
+        }
+        return <Header><div className={className}>{logo}</div><LinkMenu/></Header>
 
     }
 
@@ -233,6 +258,9 @@ class App extends Component {
         this.props.clowdrAppState.history = this.props.history;
         if(this.props.clowdrAppState.user && this.props.clowdrAppState.user.get("passwordSet"))
             this.setState({isShowOtherPanes: true});
+
+        localStorage.setItem('leftPaneSize', '250');
+        localStorage.setItem('rightPaneSize', '250');
 
     }
 
@@ -348,6 +376,9 @@ class App extends Component {
         if(topElement)
             topHeight = topElement.clientHeight;
 
+        let leftPaneSize = localStorage.getItem("leftPaneSize") ? localStorage.getItem("leftPaneSize") + "px" : "250px";
+        let rightPaneSize = localStorage.getItem("rightPaneSize") ? localStorage.getItem("rightPaneSize") + "px" : "250px";
+
         return (
                 <div className="App">
                     <EmojiPickerPopover />
@@ -356,26 +387,23 @@ class App extends Component {
                         <div id="top-content">
                             {this.siteHeader()}
                             {this.navBar()}
-                        {/*<Header className="action-bar">*/}
-                        {/*    /!*<Badge*!/*/}
-                        {/*    /!*    title={this.props.clowdrAppState.liveVideoRoomMembers + " user"+(this.props.clowdrAppState.liveVideoRoomMembers == 1 ? " is" : "s are")+" in video chats"}*!/*/}
-                        {/*    /!*    showZero={true} style={{backgroundColor: '#52c41a'}} count={this.props.clowdrAppState.liveVideoRoomMembers} offset={[0,-5]}>*!/*/}
-                        {/*    <Button style={lobbySiderButtonStyle} onClick={this.toggleLobbySider.bind(this)} size="small" >Breakout Rooms <RightOutlined /></Button>*/}
-                        {/*    <Button style={chatSiderButtonStyle} onClick={this.toggleChatSider.bind(this)} size="small" >Chat</Button>*/}
-
-                        {/*    /!*</Badge>*!/*/}
-                        {/*    </Header>*/}
                         </div>
-                        <Layout>
 
                         <Content>
 
                         <div className="main-area" style={{ height:"calc(100vh - "+(topHeight )+"px)", overflow: "auto"}}>
 
-                            <SplitPane>
-                                <Pane initialSize={this.state.isShowOtherPanes ? "250px" : 0}>
+                            <SplitPane 
+                                onChange={(sizes) => {
+                                    localStorage.setItem('leftPaneSize', sizes[0]);
+                                    localStorage.setItem('rightPaneSize', sizes[2]);
+                                }}
+                            >
+                                {/* Left side Pane */}
+                                <Pane initialSize={this.state.isShowOtherPanes ? leftPaneSize : 0}>
                                     <SocialTab collapsed={this.state.socialCollapsed} />
                                 </Pane>
+                                {/* Middle Pane */}
                                 <Pane>
                                     <div className="middlePane">
                                         <SplitPane split="horizontal" ref={this.chatPaneRef} onChange={(sizes)=>{
@@ -395,19 +423,17 @@ class App extends Component {
                                             </Pane>
                                         </SplitPane>
                                     </div>
-                                {/*</Content>*/}
                                 </Pane>
-                                <Pane initialSize={this.state.isShowOtherPanes ? "250px" : 0}>
+                                {/* Right side Pane */}
+                                <Pane initialSize={this.state.isShowOtherPanes ? rightPaneSize : 0}>
                                     <div className="chatTab" id="rightPopout">
                                         <div id="activeUsersList"><ActiveUsersList /></div>
-                                        <Divider className="sidebar-section-separator"></Divider>
                                         <div id="sidebarChat"><SidebarChat collapsed={this.state.chatCollapsed} /></div>
                                     </div>
                                 </Pane>
                             </SplitPane>
                         </div>
                         </Content>
-                        </Layout>
                     </Layout>
                     </div>
                     {/* <div style={{position:
@@ -419,6 +445,9 @@ class App extends Component {
     }
 }
 
+function capitalizeFirstLetter(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
 let RouteredApp = withRouter(App);
 class ClowdrApp extends React.Component{
@@ -428,8 +457,8 @@ class ClowdrApp extends React.Component{
         edge: this.okBrowser,
         safari: this.okBrowser,
         default: (browser) => {
-            message.error(<span>The browser that you are using, {browser} is not known to be supported by Clowdr. <br />Clowdr is still in
-                beta mode, and we would suggest using Chrome, Safari, or Edge for the best experience.</span>,0)
+            message.error(<span>The browser that you are using, {capitalizeFirstLetter(browser)}, may not work well with Clowdr. <br />Clowdr is still in
+                beta mode, and has only been tested with Chrome, Safari, and Edge.</span>, 30)
             return <></>
         }
     };

@@ -40,7 +40,7 @@ export default class MultiChatWindowHeader extends React.Component<MultiChatWind
     notificationSummary(unreadCount: number, tooltipText: string, className: string, shortName: string){
         if(unreadCount <= 0)
             return "";
-        return <Tooltip title={tooltipText} key={shortName}><Tag><Badge count={unreadCount} className={className} overflowCount={30} />{shortName}</Tag></Tooltip>
+        return <Tooltip title={tooltipText} key={shortName}><Tag><Badge count={unreadCount} className={className} overflowCount={99} />{shortName}</Tag></Tooltip>
     }
     render() {
         // if (this.state.loading)
@@ -54,8 +54,8 @@ export default class MultiChatWindowHeader extends React.Component<MultiChatWind
 
         let notifications = <span className="notifications">
             {this.notificationSummary(this.state.nDMs,"New Direct Messages","dms","DMs")}
-            {this.notificationSummary(this.state.nSubscribedMessages,"New messages in subscribed channels","subscribed","Subscribed channels")}
-            {this.notificationSummary(this.state.nPaperMessages,"New messages in paper chats","papers","Papers")}
+            {this.notificationSummary(this.state.nSubscribedMessages,"New messages in subscribed channels","subscribed","in subscribed channels")}
+            {this.notificationSummary(this.state.nPaperMessages,"New messages in paper channels","papers","in paper channels")}
             {/*{this.notificationSummary(4,"New Direct Messages","dms","DMs")}*/}
             {/*<Badge count={this.state.nDMs}  title="New DMs" />&nbsp;*/}
             {/*<Badge count={this.state.nSubscribedMessages}  title="New messages in subscribed channels" style={{ backgroundColor: '#CD2EC9' }}/>&nbsp;*/}

@@ -1,8 +1,8 @@
 import Chat from "twilio-chat";
 import Parse from "parse";
 import React from "react";
-import {message} from "antd";
-
+import {backOff} from "exponential-backoff";
+import {message} from "antd"
 export default class ChatClient{
     constructor(setGlobalState) {
         this.channelListeners = [];
@@ -19,7 +19,7 @@ export default class ChatClient{
         this.channelWaiters = {};
     }
 
-    async openChatAndJoinIfNeeded(sid, openOnRight=false){
+    async openChatAndJoinIfNeeded(sid, openOnRight=false) {
         let channels = this.joinedChannels;
         let found = channels[sid];
         if (!found) {
@@ -40,7 +40,7 @@ export default class ChatClient{
         }
         else{
             if(openOnRight){
-                this.appController.setState({chatChannel: sid});
+                this.setRightSideChat(sid);
             }
             else {
                 this.openChat(found.sid);
@@ -83,48 +83,56 @@ export default class ChatClient{
         }
         return chan.channel;
     }
-    async timeout(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+
+    async callWithRetry(twilioFunctionToCall) {
+        const response = await backOff(twilioFunctionToCall,
+            {
+                startingDelay: 500,
+                retry: (err, attemptNum) => {
+                    if (err && err.code == 20429)
+                        return true;
+                    console.log(err);
+                    return false;
+                }
+            });
+        return response;
+
     }
     async joinAndGetChannel(uniqueName) {
         if(!this.twilio){
             await this.chatClientPromise;
         }
-        let channel = await this.twilio.getChannelByUniqueName(uniqueName);
+        let channel = await this.callWithRetry(()=>this.twilio.getChannelByUniqueName(uniqueName));
         let chan = this.joinedChannels[channel.sid];
         this.channelsThatWeHaventMessagedIn.push(channel.sid);
         if(chan){
             return chan.channel;
         }
         try{
-            let membership = await channel.join();
+            let membership = await this.callWithRetry(() => channel.join());
             await this.getChannelInfo(membership);
             return membership;
         }catch(err){
-            if(err.code == 20429){
-                //Back off, try again
-                this.channelsThatWeHaventMessagedIn = this.channelsThatWeHaventMessagedIn.filter(s=>s!=channel.sid);
-                await this.timeout(1000 + Math.random()*4000);
-                return this.joinAndGetChannel(uniqueName);
-            }
-            else if(err.code ==50403) {
-                this.channelsThatWeHaventMessagedIn = this.channelsThatWeHaventMessagedIn.filter(s=>s!=channel.sid);
-                console.log("Asking for bonded channel for " + channel.sid)
-                let res = await Parse.Cloud.run("chat-getBondedChannelForSID", {
-                    conference: this.conference.id,
-                    sid: channel.sid
-                });
-                this.channelsThatWeHaventMessagedIn.push(res);
-                channel = await this.twilio.getChannelByUniqueName(res);
-                try{
-                    let membership = await channel.join();
-                    await this.getChannelInfo(membership);
-                    return membership;
-                }catch(er2){
-                    //We are in fact already in this channel!
-                    console.log(er2)
-                    return channel;
-                }
+            if(err.code ==50403) {
+                message.error("Sorry, the text channel that you selected is currently at full capacity (currently, channels support a max of 1,000 users).")
+                return null;
+                // this.channelsThatWeHaventMessagedIn = this.channelsThatWeHaventMessagedIn.filter(s=>s!=channel.sid);
+                // console.log("Asking for bonded channel for " + channel.sid)
+                // let res = await Parse.Cloud.run("chat-getBondedChannelForSID", {
+                //     conference: this.conference.id,
+                //     sid: channel.sid
+                // });
+                // this.channelsThatWeHaventMessagedIn.push(res);
+                // channel = await this.callWithRetry(()=>this.twilio.getChannelByUniqueName(res));
+                // try{
+                //     let membership = await this.callWithRetry(()=>channel.join());
+                //     await this.getChannelInfo(membership);
+                //     return membership;
+                // }catch(er2){
+                //     //We are in fact already in this channel!
+                //     console.log(er2)
+                //     return channel;
+                // }
             }
             else{
                 console.log(err);
@@ -146,19 +154,62 @@ export default class ChatClient{
 
     initChatSidebar(rightChat){
         this.rightSideChat = rightChat;
+        if(!this.rhsChatPromise){
+            this.rhsChatPromise = new Promise(resolve=>{resolve()});
+        }else{
+            this.rhsChatResolve();
+        }
     }
 
     initBottomChatBar(chatBar){
         this.chatBar = chatBar;
-        chatBar.setState({chats: Object.values(this.joinedChannels).filter(c=>c.attributes && c.attributes.category != "socialSpace").map(c=>c.channel.sid)});
-        chatBar.setState({Initialchats: Object.values(this.joinedChannels).filter(c=>c.attributes && c.attributes.category != "socialSpace").map(c=>c.channel.sid)});
+        chatBar.setState({chats: Object.values(this.joinedChannels)
+                // .filter(c=>c.attributes && c.attributes.category != "socialSpace")
+                .map(c=>c.channel.sid)});
+        chatBar.setState({Initialchats: Object.values(this.joinedChannels)
+                // .filter(c=>c.attributes && c.attributes.category != "socialSpace")
+                .map(c=>c.channel.sid)});
     }
 
     initJoinedChatList(chatList){
         this.chatList = chatList;
         chatList.setState({chats: Object.values(this.joinedChannels)
-                .filter(c=>c.attributes && c.attributes.category != "socialSpace")
+                // .filter(c=>c.attributes && c.attributes.category != "socialSpace")
                 .map(c=>c.channel.sid)});
+    }
+
+    async disableRightSideChat(){
+        if(this.rightSideChat)
+            this.rightSideChat.setChatDisabled(true);
+    }
+    async setRightSideChat(newChannelSID){
+        if(this.desiredRHSChat == newChannelSID)
+            return;
+        this.desiredRHSChat = newChannelSID;
+        if (!this.rhsChatPromise) {
+            this.rhsChatPromise = new Promise(async (resolve) => {
+                this.rhsChatResolve = resolve;
+                if (this.rightSideChat) {
+                    resolve();
+                }
+            });
+            await this.rhsChatPromise;
+        }
+        let channel = null;
+        let found = this.joinedChannels[newChannelSID];
+        let shouldLeaveWhenChanges = false;
+        if(found){
+            channel = found.channel;
+        }
+        else{
+            channel = await this.joinAndGetChannel(newChannelSID)
+            if(!this.desiredRHSChat == newChannelSID)
+                return;
+            if(channel.friendlyName && channel.friendlyName.startsWith("socialSpace-"))
+                shouldLeaveWhenChanges = true;
+        }
+        if(channel)
+            await this.rightSideChat.setChannel(channel, shouldLeaveWhenChanges);
     }
 
     initChatClient(user, conference, userProfile, appController) {
@@ -191,7 +242,7 @@ export default class ChatClient{
             this.chatList.addChannel(chatSID);
     }
 
-    openEmojiPicker(message, event, chatFrame){
+    openEmojiPicker(message, event, chatFrame) {
         if(this.emojiPickerRef.current){
             let boundingTargetRect = event.target.getBoundingClientRect();
             let newFromTop = boundingTargetRect.y
@@ -199,21 +250,21 @@ export default class ChatClient{
             this.emojiClickTarget = event.target;
             let boxWidth = this.emojiPickerRef.current.clientWidth;
             let boxHeight = this.emojiPickerRef.current.clientHeight;
-            if(boxHeight == 0)
+            if (boxHeight == 0)
                 boxHeight = 425;
-            if(boxWidth == 0)
+            if (boxWidth == 0)
                 boxWidth = 353;
-            let screenWidth = window.screenX;
-            let screenHeight = window.screenY;
-            if(boxWidth + newFromLeft > screenWidth)
+            let screenWidth = window.innerWidth;
+            let screenHeight = window.innerHeight;
+            if (boxWidth + newFromLeft > screenWidth)
             {
                 //place the picker to the right of the cursor
-                newFromLeft = newFromLeft- boxWidth;
+                newFromLeft = newFromLeft - boxWidth;
             }
-            if(newFromTop - boxHeight > 0){
+            if (newFromTop - boxHeight > 0){
                 newFromTop = newFromTop - boxHeight;
             }
-            if(newFromLeft < 0)
+            if (newFromLeft < 0)
                 newFromLeft = 0;
             this.emojiPickerRef.current.style.display = "block";
             this.emojiPickerRef.current.style.left = newFromLeft+"px";
@@ -264,7 +315,7 @@ export default class ChatClient{
     async getChannelInfo(channel){
 
         let ret = {};
-        ret.attributes = await channel.getAttributes();
+        ret.attributes = await this.callWithRetry(()=>channel.getAttributes());
         let convoQ = new Parse.Query("Conversation");
         let shouldHaveParseConvo  = ret.attributes.category == "userCreated";
         if(shouldHaveParseConvo) {
@@ -277,43 +328,51 @@ export default class ChatClient{
                 return;
             }
         }
-        let members = await channel.getMembers();
+        let members = await this.callWithRetry(()=>channel.getMembers());
         ret.members = members.map(m=>m.identity); //.filter(m=>m!= this.userProfile.id);
         ret.channel  =channel;
-
+        ret.components = [];
+        ret.visibleComponents = [];
+        ret.messages = [];
+        ret.channel.on("messageAdded", (message)=>{
+            for(let component of ret.components){
+                component.messageAdded(ret.channel, message);
+            }
+        });
+        ret.channel.on("messageRemoved", (message) =>{
+            for(let component of ret.components){
+                component.messageRemoved(ret.channel, message);
+            }
+        });
+        ret.channel.on("messageUpdated", (message) =>{
+            for(let component of ret.components){
+                component.messageUpdated(ret.channel, message);
+            }
+        })
+        ret.channel.on("memberJoined", (member)=>{
+            ret.members.push(member);
+            for(let component of ret.components){
+                component.memberJoined(ret.channel, member);
+            }
+            if(this.chatBar){
+                this.chatBar.membersUpdated(ret.channel.sid);
+            }
+        })
+        ret.channel.on("memberLeft", (member)=>{
+            ret.members = ret.members.filter(m=>m.sid != member.sid);
+            for(let component of ret.components){
+                component.memberLeft(ret.channel, member);
+            }
+            if(this.chatBar){
+                this.chatBar.membersUpdated(ret.channel.sid);
+            }
+        })
         this.joinedChannels[channel.sid] = ret;
         if(this.channelWaiters[channel.sid]){
             this.channelWaiters[channel.sid](ret.channel);
             this.channelWaiters[channel.sid] = undefined;
         }
         return ret;
-    }
-
-    subscribeToChannel(sid){
-        if(this.channelListeners[sid]){
-            console.log("Duplicate subscribe called")
-            return;
-        }
-        const updateMembers = async ()=>{
-            let container = this.joinedChannels[sid];
-            if(!container){
-                //we have left this channel
-                return;
-            }
-            let members = await container.channel.getMembers();
-            members = members.map(m=>m.identity);
-            this.joinedChannels[sid].members = members;
-            if(this.chatBar){
-                this.chatBar.membersUpdated(sid);
-            }
-
-        };
-        let channel = this.joinedChannels[sid].channel;
-        this.channelListeners[sid] =[
-            channel.on('memberJoined',updateMembers),
-            channel.on("memberLeft", updateMembers)
-        ];
-
     }
 
     unSubscribeToChannel(channel) {
@@ -330,8 +389,8 @@ export default class ChatClient{
         }
         let token = await this.getToken(user, conference);
         let twilio = await Chat.create(token);
-        let [subscribedChannelsPaginator, allChannelDescriptors] = await Promise.all([twilio.getSubscribedChannels(),
-        twilio.getPublicChannelDescriptors()]);
+        let [subscribedChannelsPaginator, allChannelDescriptors] = await Promise.all([this.callWithRetry(()=>twilio.getSubscribedChannels()),
+        this.callWithRetry(()=>twilio.getPublicChannelDescriptors())]);
         let promises = [];
         while (true) {
             for (let channel of subscribedChannelsPaginator.items) {
@@ -346,7 +405,7 @@ export default class ChatClient{
         let channelsToFetch = [];
         while(true) {
             for (let cd of allChannelDescriptors.items) {
-                channelsToFetch.push(cd.getChannel());
+                channelsToFetch.push(this.callWithRetry(()=>cd.getChannel()));
             }
             if(allChannelDescriptors.hasNextPage){
                 allChannelDescriptors = await allChannelDescriptors.nextPage();
@@ -357,21 +416,17 @@ export default class ChatClient{
         let [joinedChannels, allChannels] = await Promise.all([Promise.all(promises), Promise.all(channelsToFetch)]);
         this.channels = allChannels;
 
-        for(let sid of Object.keys(this.joinedChannels)){
-            this.subscribeToChannel(sid);
-        }
-
         //Make sure that the bottom chat bar and chat list have everything we have so far
         if (this.chatList)
             this.chatList.setState({
                     chats: Object.values(this.joinedChannels)
-                        .filter(c => c.attributes && c.attributes.category != "socialSpace")
+                        // .filter(c => c.attributes && c.attributes.category != "socialSpace")
                         .map(c => c.channel.sid)
             });
         if (this.chatBar)
             this.chatBar.setState({
                 chats: Object.values(this.joinedChannels)
-                    .filter(c => c.attributes && c.attributes.category != "socialSpace")
+                    // .filter(c => c.attributes && c.attributes.category != "socialSpace")
                     .map(c => c.channel.sid)
             });
         if(this.multiChatWindow) {
@@ -380,11 +435,9 @@ export default class ChatClient{
         }
 
         twilio.on("channelAdded", (channel)=>{
-            console.log("Channel added")
-            console.log(channel);
+            console.log("Channel added: " + channel)
             this.channels.push(channel);
             this.multiChatWindow.setAllChannels(this.channels);
-            console.log(channel);
             if(channel.attributes && channel.attributes.isAutoJoin && channel.attributes.isAutoJoin != "false"){
                 if(!Object.keys(this.joinedChannels).includes(channel.sid)){
                     this.joinAndGetChannel(channel.sid)
@@ -405,7 +458,6 @@ export default class ChatClient{
                 if (this.multiChatWindow) {
                     this.multiChatWindow.setJoinedChannels(Object.keys(this.joinedChannels));
                 }
-                this.subscribeToChannel(channel.sid);
                 // if (channelInfo.attributes.category != "socialSpace"){
                 //     this.openChat(channel.sid, channelInfo.attributes.category == "announcements-global");
                 // }

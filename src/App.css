@@ -8,6 +8,46 @@
     background: #141414;
 }
 
+.ant-layout {
+    background-color: white;
+}
+
+.ant-layout-header {
+    height: 50px;
+    padding: 0 0px;
+    color: rgba(0, 0, 0, 0.65);
+    line-height: 50px;
+    background: #001529;
+}
+
+.logo {
+    width: 120px;
+    height: 50px;
+    /* background: rgba(255, 255, 255, 0.2); */
+    /* margin: 0px 10px 0px 0px; */
+    float: left;
+}
+
+.logo .img {
+    vertical-align: top;
+}
+
+.missing-logo {
+    width: 120px;
+    height: 64px;
+    background: rgba(255, 255, 255, 0.2);
+    /* margin: 0px 10px 0px 0px; */
+    float: left;
+}
+
+#top-content{
+    top:0;
+    left: 0;
+    right: 0;
+    background-color: white;
+    border-bottom: 1px solid #e7e7e7;
+}
+
 .space-align-container {
     display: flex;
     align-item: flex-start;
@@ -152,17 +192,6 @@
 .deleteButton a{
     color: red;
     font-weight: bold;
-}
-
-.ant-layout {
-    background-color: white;
-}
-#top-content{
-    top:0;
-    left: 0;
-    right: 0;
-    background-color: white;
-    border-bottom: 1px solid #e7e7e7;
 }
 
 .lobbySessionTab {
@@ -364,7 +393,8 @@ background-color:#97a7b7;
     cursor: ew-resize;
 }
 .chatIdentitySidebar{
-    font-weight: bold;
+    /* font-weight: bold; */
+    /* font-size: 16px;*/
     text-align: center;
 }
 .chatTab{
@@ -434,7 +464,10 @@ div.availabilityOptionsOpen  span.availabilityOption{
     margin-left: 2px;
     margin-right: 2px;
 }
-
+.chatIdentitySidebar {
+    color: black;
+    background-color: #d6e4ff;
+}
 .chatButtonCollapsed{
     text-overflow: ellipsis;
     width: 238px;
@@ -449,7 +482,6 @@ div.availabilityOptionsOpen  span.availabilityOption{
     bottom: 0;
     width: 100%;
     height: 100%;
-
     flex-direction: column;
     display: flex;
 }
@@ -503,7 +535,9 @@ div.availabilityOptionsOpen  span.availabilityOption{
     display: flex;
 }
 .bottomChatHeader{
-    background-color: #1890FF;
+    /* background-color: #1890FF;  */
+    background-color: #d6e4ff;
+     /* BCP: check */
     border-bottom: 1px solid #6666;
     /*flex: 1 1 5%;*/
     flex-grow: 1;
@@ -537,14 +571,23 @@ div.availabilityOptionsOpen  span.availabilityOption{
 }
 
 .bottomChatIdentity{
-    color: white;
+    background-color: #d6e4ff;
+    color: black;
     padding-left: 2px;
     flex-grow: 2;
-    font-weight:bolder;
+    /* font-weight:bolder; */
+}
+.bottomChatIdentity  a{
+    color: #0056b3;
+}
+.bottomChatIdentity a:hover{
+    color: #030852;
 }
 
+/* 
 .bottomChatClose{
-}
+} 
+*/
 
 .programContainer{
     display: flex;
@@ -585,16 +628,40 @@ td.ant-table-cell.program-table-timeBand{
 
 #sidepopoutcontainer .social-sidebar-divider{
     margin: 0;
+    background-color: #d6e4ff;
+    border: 0;
+   }
+.social-sidebar-divider a {
+    color: black;
+}
+
+.social-sidebar-divider{
+    margin: 0;
+    background-color: #d6e4ff;
+    border: 0;
    }
 
+.social-sidebar-divider.ant-divider-horizontal.ant-divider-with-text{
+    margin: 0;
+}
+.social-sidebar-divider .ant-divider-inner-text {
+    color: black;
+}
 .sidebar-section-separator{
     height: 2px;
-    background-color: #198fff;
+    background-color: #198fff; /* BCP: unused now, I think? */
     margin: 0;
  }
 
+/* Doesn't work! 
+ .ant-divider-horizontal > .ant-divider-with-text {
+    border: 0;
+    margin: 0;
+ }
+ */
+
 span.ant-divider-inner-text {
-        color: #0264c1;
+        color: #0264c1;  /* BCP: Not sure what this does */
     }    
 
 /* For Mobile */
@@ -696,7 +763,8 @@ span.ant-divider-inner-text {
 }
 .multiChatWindow {
     background-color: white;
-    border: 2px solid #1890FF;
+ /*   border: 2px solid #1890FF; */ /* BCP: Changed (I think this looks right) */
+    border: 2px solid #d6e4ff;
     display: flex;
     flex-direction: column;
 
@@ -704,10 +772,23 @@ span.ant-divider-inner-text {
     height: 100%;
     width: 100%;
 }
+.multiChatWindowHeader button.ant-btn-primary{
+    background-color: #d6e4ff;
+    text-shadow: none;
+    border: none;
+    color: black;
+}
+.multiChatWindowHeader button.ant-btn-primary:hover{
+    background-color: #597ef7;
+    border: none;
+    color: black;
+}
 .multiChatWindowHeader{
-    background-color: #1890FF;
-    color: white;
-    font-weight: bold;
+    /* background-color: #1890FF; */
+    background-color: #d6e4ff;
+    color: black;
+    /* font-weight: bold; */
+    font-size: 16px;
     text-align: center;
 }
 
@@ -716,7 +797,6 @@ span.ant-divider-inner-text {
 }
 
 .multiChatWindowHeader .notifications {
-    float: center;
 }
 
 .multiChatWindowHeader .actions {
@@ -732,7 +812,7 @@ span.ant-divider-inner-text {
     height: 100%;
 }
 .multiChatChannelChanger{
-    min-width: 100px;
+    min-width: 200px;
     max-width: 200px;
     flex-grow: 1;
     height: 100%;
@@ -827,7 +907,8 @@ span.ant-divider-inner-text {
     width: 100%;
     height: 100%;
     bottom: 0;
-    border: 2px solid #1890FF;
+    /* border: 2px solid #1890FF; */
+    border: 2px solid #d6e4ff;
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -962,12 +1043,6 @@ span.ant-divider-inner-text {
 .icon-text{
     font-size: xx-small;
 }
-.bottomChatIdentity  a{
-    color: #f0f5ff;
-}
-.bottomChatIdentity a:hover{
-    color: #adc6ff;
-}
 
 .reactionWrapper{
     /*padding: 0 10px 5px;*/
@@ -1004,11 +1079,10 @@ span.ant-divider-inner-text {
 .userDisplay .userName{
     color: black;
 }
-.bottomChatHeader .userName{
-    color: white;
-}
+
 .bottomChatClose button{
-    color: white;
+   /* color: white; */
+   color: gray;
 }
 .bottomChatClose button:hover{
     color: #E8F5FA;
@@ -1019,19 +1093,23 @@ span.ant-divider-inner-text {
 }
 .notifications .ant-tag{
     border-radius: 5px;
-    background-color: #f5222d;
+    background-color: #fc858b;
     color: white;
     border: none;
-
+}
+.ant-badge-count {
+    background-color: #fc858b;
 }
 .notifications .ant-tag .ant-badge{
     padding-right: 5px;
     /*padding-top: 4px;*/
     /*padding-bottom: 4px;*/
 }
+/*
 .notifications .ant-tag .ant-badge-count{
-    background-color: #f5222d;
+    background-color: #ff9ca1;
 }
+*/
 .chatEntryWrapper{
     display: flex;
     flex-direction: row;

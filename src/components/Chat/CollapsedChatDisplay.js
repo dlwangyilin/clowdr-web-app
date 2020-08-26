@@ -15,7 +15,7 @@ class CollapsedChatDisplay extends React.Component{
 
     getChatTitle(chat) {
         if(!chat){
-            console.log("No chat!")
+            console.log("No chat!" + " " + this.state.sid)
             return <Skeleton.Input active style={{width: '20px', height: '1em'}}/>;
         }
         this.titleSet = true;
@@ -44,7 +44,7 @@ class CollapsedChatDisplay extends React.Component{
                 this.setState({title: chat.channel.friendlyName});
         }
         else{
-            this.setState({title: chat.channel.sid});
+            this.setState({title: chat.channel.friendlyName ? chat.channel.friendlyName: chat.channel.sid});
         }
     }
 
@@ -136,6 +136,9 @@ class CollapsedChatDisplay extends React.Component{
             >Delete Channel (use with care!)</Button></Popconfirm>)
         }
         let popoverContent = <Space>{buttons}</Space>;
+        // BCP: All the different colors are confusing, IMO
+        let color = "#fc858b";
+        /*
         let color = "";
         if (this.props.category == "dm")
             color = 'red';
@@ -145,7 +148,7 @@ class CollapsedChatDisplay extends React.Component{
             color = '#151388';
         else if (this.props.category == "papers")
             color = '#087C1D';
-
+        */
         return <Popover key={this.state.sid} mouseEnterDelay={0.5} placement="topRight"
                 content={popoverContent}><div
                 className="collapsedChatDisplay"
@@ -153,7 +156,7 @@ class CollapsedChatDisplay extends React.Component{
             >
            <div
                className="userTag"
-               onClick={()=>{this.props.auth.chatClient.openChat(this.state.sid)}}
+               onClick={()=>{if(!this.props.noLink) this.props.auth.chatClient.openChat(this.state.sid)}}
            ><Badge overflowCount={9} className="chat-unread-count" count={this.state.unread} style={{ backgroundColor: color }}/> {this.state.title}
            </div>
        </div></Popover>

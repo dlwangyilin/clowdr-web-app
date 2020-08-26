@@ -233,7 +233,8 @@ const withClowdrState = (Component: React.Component<Props, State>) => {
                 conversationName: profileOfUserToDM.get("displayName"),
                 messageWith: profileOfUserToDM.id
             });
-            await this.state.chatClient.openChat(res.sid);
+            if (res.status == "ok")
+                await this.state.chatClient.openChat(res.sid);
         }
 
         // TS: @ Jon: Should this be polymorphic??
@@ -417,6 +418,9 @@ const withClowdrState = (Component: React.Component<Props, State>) => {
         Provide either the spaceName or the space object.
          */
         async setSocialSpace(spaceName:string, space:SocialSpace, user:User, userProfile:UserProfile, ignoreChatChannel?:boolean) {
+            // let name = space ? space.get("name") : "-"
+            // console.log(`setSocialSpace: spaceName=${spaceName} space=${space} (${name}) ignoreChannel=${ignoreChatChannel}`);
+            // console.trace();
             if (!this.state.user && !user) // user is not logged in
                 return
             if (space)
@@ -443,11 +447,13 @@ const withClowdrState = (Component: React.Component<Props, State>) => {
                 }
                 let stateUpdate = {
                     activeSpace: space,
-                    chatChannel:  space ? space.get("chatChannel") : undefined
                 }
                 if(ignoreChatChannel)
                 {
-                    stateUpdate.chatChannel = "@chat-ignore"
+                    this.state.chatClient.disableRightSideChat();
+                }
+                else{
+                    this.state.chatClient.setRightSideChat(space.get("chatChannel"));
                 }
                 this.setState(stateUpdate);
             }
@@ -455,8 +461,7 @@ const withClowdrState = (Component: React.Component<Props, State>) => {
                 if(!space && this.state.spaces){
                     space = this.state.spaces[spaceName];
                 }
-                if(this.state.chatChannel != space.get("chatChannel"))
-                    this.setState({chatChannel: space.get("chatChannel")});
+                this.state.chatClient.setRightSideChat(space.get("chatChannel"));
             }
         }
 
@@ -737,7 +742,6 @@ const withClowdrState = (Component: React.Component<Props, State>) => {
                 this.parseLivePublicVideosSub = this.state.parseLive.subscribe(query, this.user.getSessionToken());
                 this.parseLivePublicVideosSub.on('create', async (vid:BreakoutRoom) => { 
                     this.activePublicVideoRooms.push(vid);
-                    console.log("Created: " + vid)
                     for(let obj of this.activeRoomSubscribers){
                         obj.setState({activePublicVideoRooms: this.activePublicVideoRooms.concat([])});
                     }
@@ -751,7 +755,6 @@ const withClowdrState = (Component: React.Component<Props, State>) => {
                 this.parseLivePublicVideosSub.on('update', async (vid:BreakoutRoom) => {
                     this.notifyUserOfChanges(vid);
                     this.activePublicVideoRooms = this.activePublicVideoRooms.map((room:BreakoutRoom)=>room.id == vid.id ? vid : room);
-                    console.log("Updated: " + vid.id)
                     for(let obj of this.activeRoomSubscribers){
                         obj.setState({activePublicVideoRooms: this.activePublicVideoRooms.concat([])});
                     }

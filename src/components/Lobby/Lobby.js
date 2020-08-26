@@ -205,7 +205,7 @@ class Lobby extends React.Component {
                 }
                 for (let item of this.state.ProgramItems) {
                     if (item.get("breakoutRoom")) {
-                        let room = this.state.activePublicVideoRooms.find(v => v.id == item.get("breakoutRoom").id);
+                        let room = this.state.activePublicVideoRooms? this.state.activePublicVideoRooms.find(v => v.id == item.get("breakoutRoom").id) : undefined;
                         if (room && breakoutRoomsForTracks[item.get('track').id]) {
                             breakoutRoomsForTracks[item.get("track").id].push(room);
                         }
@@ -498,7 +498,7 @@ class Lobby extends React.Component {
                 <Space />
 
                 <div className="new-breakout-room-button">
-                    <NewRoomForm type="secondary" text="New video chat room" />
+                    <NewRoomForm type="primary" text="New video chat room" />
                 </div>
                 <div className="lobby-section-header">
                     Video Chat Rooms
@@ -527,8 +527,8 @@ class Lobby extends React.Component {
                     }) : <></>
                 }
 
-                // BCP: We decided to remove the list of active video chats from the PaaG sidebar
                 {/*
+                // BCP: We decided to remove the list of active video chats from the PaaG sidebar
                 <div className="lobby-section-header">
                     Participants not currently in a video chat room
                 </div>

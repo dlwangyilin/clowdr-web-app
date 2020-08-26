@@ -163,10 +163,12 @@ class ChatChannelArea extends React.Component {
 
     render() {
         // if (this.state.loading)
+
         //     return <Spin/>
         let title = this.state.title;
         if (this.state.members) {
             title = <Tooltip mouseEnterDelay={0.5}
+                             overlayStyle={{zIndex: 10}}
                              title={this.state.members}>{this.state.title} ({this.state.membersCount} members)</Tooltip>
         }
         let header = <div className="bottomChatHeader">
