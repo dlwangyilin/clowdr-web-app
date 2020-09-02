@@ -2,13 +2,6 @@ const Parse = require('parse/node');
 const fs = require('fs');
 const path = require('path'); 
 const { exec } = require('child_process');
-const { SSL_OP_ALL } = require('constants');
-const {activate} = require('../cloud/admin');
-var readline = require('readline');
-var rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
 
 Parse.initialize(process.env.REACT_APP_PARSE_APP_ID, process.env.REACT_APP_PARSE_JS_KEY, process.env.PARSE_MASTER_KEY);
 Parse.serverURL = process.env.REACT_APP_PARSE_DATABASE_URL;
@@ -40,7 +33,7 @@ const defaultText = `
                     <li>Send a direct message to the organizers</li>
                 </ul>
             </div>
-            <p><b><a href="https://www.clowdr.org/" target="_blank">CLOWDR</a></b> is a community-driven effort to create a new platform to
+            <p><b><a href="https://www.clowdr.org/" rel="noopener noreferrer" target="_blank">CLOWDR</a></b> is a community-driven effort to create a new platform to
                 support <b>C</b>onferences <b>L</b>ocated <b>O</b>nline <b>W</b>ith <b>D</b>igital <b>R</b>esources. (Also, a clowder
                 is <a href="https://www.merriam-webster.com/dictionary/clowder" rel="noopener noreferrer" target="_blank">a group of cats</a> &#128049;).
                 CLOWDR is created by <a href="https://jonbell.net" rel="noopener noreferrer" target="_blank">Jonathan Bell</a>, <a href="https://www.ics.uci.edu/~lopes/" rel="noopener noreferrer" target="_blank">Crista Lopes</a> and <a href="https://www.cis.upenn.edu/~bcpierce/" rel="noopener noreferrer" target="_blank">Benjamin Pierce</a>.
@@ -58,7 +51,14 @@ const Version = Parse.Object.extend('Version');
 let q = new Parse.Query(Version);
 q.first().then(version => {
     if (!version) { // Does not exist. This is the initial setup
-        const cmd = `mongorestore --host ${process.env.MONGODB_HOST} --username admin --password ${process.env.MONGODB_PASSWORD} --db ${process.env.MONGODB_DB} ./db/schema-base`;
+        let cmd = "";
+        if (process.env.MONGODB_PASSWORD) {
+            cmd = `mongorestore --host ${process.env.MONGODB_HOST} --username admin --password ${process.env.MONGODB_PASSWORD} --db ${process.env.MONGODB_DB} ./db/schema-base`;
+        }
+        else {
+            cmd = `mongorestore --host ${process.env.MONGODB_HOST} --db ${process.env.MONGODB_DB} ./db/schema-base`;
+        }
+
         console.log('> ' + cmd);
         exec(cmd, (err, stdout, stderr) => {
             if (err) {
@@ -70,8 +70,8 @@ q.first().then(version => {
                 version.set("version", 0);
                 version.save().then(res => {
                     console.log("Schema version set to 0");
+                    addRequiredData();
                 });
-                addRequiredData();
             }
         });
     }
@@ -79,9 +79,9 @@ q.first().then(version => {
         let v = version.get('version'); // Latest version number
         console.log('Applying migrations from version ' + v);
         fs.readdirSync('./db')
-                      .filter(file => ((file.match(/^\d/)) && (path.extname(file) == '.js')))
+                      .filter(file => ((file.match(/^\d/)) && (path.extname(file) === '.js')))
                       .sort()
-                      .map(f => {
+                      .forEach(f => {
                           let name = f.slice(0, -4); // without the extension
                           let n = parseInt(name);
                           if (n > v) {
@@ -92,15 +92,15 @@ q.first().then(version => {
                       });
     }
     
-}).catch(err => console.log(err));
+}).catch(err => console.error(err));
 
 async function addRequiredData() {
     console.log('Adding required data');
 
     let Instance = Parse.Object.extend('ClowdrInstance');
     let instance = new Instance();
-    instance.set('conferenceName', 'Test');
-    instance.set('shortName', 'test');
+    instance.set('conferenceName', 'XYZ');
+    instance.set('shortName', 'xyz');
     instance.set('isInitialized', true);
     instance.set('adminName', "Clowdr Admin");
     instance.set('adminEmail', "clowdr@localhost");
@@ -111,7 +111,6 @@ async function addRequiredData() {
     await file.save();
     instance.set('headerImage', file);
 
-    instance.set('isIncludeAllFeatures', true);
     instance.set("landingPage", defaultText)
 
     let acl = new Parse.ACL();
@@ -122,7 +121,100 @@ async function addRequiredData() {
     instance.setACL(acl);
 
     instance.save().then(async i => {
-        activate(i);
+        await activate(i);
     }).catch(err => console.log('Instance saved:' + err));
 
+}
+
+// This is very similar  to an existing cloud function, but it's too much of a hassle to
+// class it from here. So copy-paste-tweak.
+async function activate(instance) {
+
+    let SocialSpace = Parse.Object.extend('SocialSpace');
+    let ss = new SocialSpace();
+    ss.set('conference', instance);
+    ss.set('name', 'Lobby');
+    ss.set('isGlobal', true);
+    try {
+        await ss.save({}, {useMasterKey: true})
+        console.log('Lobby created successfully');
+    } catch(err) {
+         console.log('SocialSpace: ' + err)
+    };
+
+    // Check if the user already exists
+    let userQ = new Parse.Query(Parse.User);
+    userQ.equalTo("email", instance.get("adminEmail"));
+    let user = await userQ.first({useMasterKey: true});
+    if (!user) {
+        console.log("[activate]: user not found. Creating it " + instance.get("adminEmail"));
+        user = new Parse.User();
+        user.set('username', instance.get("adminName"));
+        user.set('password', 'admin');
+        user.set('email', instance.get("adminEmail"))
+        user.set('passwordSet', true);
+        user = await user.signUp({}, {useMasterKey: true});
+    } else {
+        console.log(`[activate]: user ${instance.get("adminEmail")} already exists. Updating`);
+    }
+
+    user.save({}, {useMasterKey: true}).then(async (u) => {
+        console.log(`[activate]: user ${u.get("email")} saved`);
+        let UserProfile = Parse.Object.extend('UserProfile');
+        let userprofile = new UserProfile();
+        userprofile.set('realName', instance.get("adminName"));
+        userprofile.set('displayName', instance.get("adminName"));
+        userprofile.set('user', u);
+        userprofile.set('conference', instance);
+
+        let profileACL = new Parse.ACL();
+        profileACL.setRoleReadAccess(instance.id + "-conference", true);
+        profileACL.setWriteAccess(user, true);
+        userprofile.setACL(profileACL);
+        userprofile = await userprofile.save({}, {useMasterKey: true});
+
+        userprofile.save({}, {useMasterKey: true}).then(async up => {
+            console.log(`[activate]: user profile ${up.get("realName")} saved`);
+
+            let profiles = u.relation('profiles');
+            profiles.add(up);
+            let u2 = await u.save();
+
+            const roleACL = new Parse.ACL();
+            roleACL.setPublicReadAccess(true);
+            roleACL.setPublicWriteAccess(false);
+            roleACL.setWriteAccess(instance.id+"-admin", true);
+            let roleNames = [instance.id + '-admin', instance.id + '-manager', instance.id + '-conference', 'ClowdrSysAdmin']
+            let roles = [];
+
+            roleNames.forEach(r => {
+                let role = new Parse.Role(r, roleACL);
+                let users = role.relation('users');
+                users.add(u2);
+                roles.push(role);
+            });
+
+            try {
+                await Parse.Object.saveAll(roles, {useMasterKey: true});
+                console.log('[activate]: Roles created successfully');
+
+            } catch(err) {
+                console.log('Roles saved: ' + err);
+            }
+
+            let userACL = u2.getACL();
+            if(!userACL)
+                userACL = new Parse.ACL();
+            userACL.setPublicReadAccess(false);
+            userACL.setPublicWriteAccess(false);
+            userACL.setWriteAccess(user.id, true);
+            userACL.setReadAccess(user.id, true);
+            userACL.setRoleReadAccess(instance.id + "-manager", true);
+            userACL.setRoleReadAccess("ClowdrSysAdmin", true);
+            u2.setACL(userACL);
+            await u2.save({}, {useMasterKey: true});
+            console.log('User ACL saved successfully');
+
+        });    
+    });
 }
